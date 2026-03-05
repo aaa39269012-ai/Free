@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Drama TV | Deepak Admin</title>
+    <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet" />
+    <style>
+        :root { --primary: #e50914; --bg: #121212; --card-bg: #1f1f1f; }
+        body { background-color: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; overflow-x: hidden; }
+        header { padding: 15px; text-align: center; background: #000; border-bottom: 2px solid var(--primary); position: sticky; top: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; }
+        
+        .container { max-width: 1000px; margin: auto; padding: 20px; }
+        
+        /* Admin Login Button */
+        .admin-btn { background: #333; color: #777; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-size: 12px; }
+
+        /* Home Screen */
+        .shows-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+        .show-card { background: var(--card-bg); border-radius: 8px; overflow: hidden; cursor: pointer; transition: 0.3s; border: 1px solid #333; }
+        .show-card:hover { transform: translateY(-5px); border-color: var(--primary); }
+        .show-card img { width: 100%; height: 200px; object-fit: cover; }
+        .show-info { padding: 10px; font-size: 14px; text-align: center; font-weight: bold; }
+
+        /* Episode Screen */
+        #episode-screen { display: none; }
+        .video-box { position: relative; width: 100%; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
+        #ad-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); display: none; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 10;
+        }
+
+        .ep-list { display: flex; flex-direction: column; gap: 8px; }
+        .ep-item { background: var(--card-bg); padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; cursor: pointer; border: 1px solid #333; }
+        .ep-item:hover { background: #252525; }
+        .lock-icon { color: #f1c40f; font-size: 12px; }
+
+        /* Admin Panel Styling */
+        #admin-panel { display: none; background: #1a1a1a; padding: 20px; border: 2px solid var(--primary); border-radius: 10px; margin-bottom: 20px; }
+        input, textarea { width: 95%; padding: 10px; margin-bottom: 10px; background: #333; color: white; border: 1px solid #444; border-radius: 5px; }
+        .save-btn { background: #28a745; color: white; border: none; padding: 10px; width: 100%; cursor: pointer; font-weight: bold; }
+
+        .back-btn { background: var(--primary); color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-bottom: 15px; }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+<header>
+    <div style="width: 80px;"></div> <h2 style="margin:0; color: var(--primary); letter-spacing: 1px;">DEEPAK TV</h2>
+    <button class="admin-btn" onclick="toggleAdmin()">Admin</button>
+</header>
+
+<div class="container">
+
+    <div id="admin-panel">
+        <div id="login-form">
+            <h4>Admin Security</h4>
+            <input type="text" id="user" placeholder="Username (Deepak)">
+            <input type="password" id="pass" placeholder="Password (Pawan)">
+            <button class="save-btn" onclick="verifyAdmin()">Login</button>
+        </div>
+        <div id="upload-form" style="display:none;">
+            <h4 style="color: #28a745;">Mubarak Ho Deepak! Add New Show</h4>
+            <input type="text" id="title" placeholder="Show Name">
+            <input type="text" id="poster" placeholder="Poster Image URL">
+            <textarea id="eps" placeholder='Format: [{"title":"Ep 1", "url":"link1"}]'></textarea>
+            <button class="save-btn" onclick="addShow()">Add to List</button>
+        </div>
+    </div>
+
+    <div id="home-screen">
+        <h3>New Releases</h3>
+        <div class="shows-grid" id="shows-list"></div>
+    </div>
+
+    <div id="episode-screen">
+        <button class="back-btn" onclick="goHome()">← Back</button>
+        <div class="video-box">
+            <div id="ad-overlay">
+                <h3 style="color:var(--primary)">ADVERTISEMENT</h3>
+                <p>Drama loading in...</p>
+                <div id="timer" style="font-size: 30px; font-weight: bold;">5s</div>
+            </div>
+            <video id="player" class="video-js vjs-16-9 vjs-big-play-centered" controls preload="auto" controlsList="nodownload"></video>
+        </div>
+        <h2 id="stitle"></h2>
+        <div class="ep-list" id="elist"></div>
+    </div>
+
+</div>
+
+<script src="https://vjs.zencdn.net/7.20.3/video.min.js"></script>
+<script>
+    // 1. DATA (Initial Shows)
+    let dramaData = [
+        {
+            id: "s1",
+            title: "Mera Inteqam",
+            poster: "https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?q=80&w=400",
+            episodes: [
+                { title: "The Betrayal", url: "https://vjs.zencdn.net/v/oceans.mp4" },
+                { title: "Planning", url: "https://www.w3schools.com/html/movie.mp4" },
+                { title: "Action (AD)", url: "https://vjs.zencdn.net/v/oceans.mp4" }
+            ]
+        }
+    ];
+
+    const vPlayer = videojs('player');
+
+    // 2. HOME RENDER
+    function initHome() {
+        const list = document.getElementById('shows-list');
+        list.innerHTML = '';
+        dramaData.forEach(show => {
+            const div = document.createElement('div');
+            div.className = 'show-card';
+            div.innerHTML = `<img src="${show.poster}"><div class="show-info">${show.title}</div>`;
+            div.onclick = () => openShow(show);
+            list.appendChild(div);
+        });
+    }
+
+    // 3. SHOW EPISODES
+    function openShow(show) {
+        document.getElementById('home-screen').style.display = 'none';
+        document.getElementById('episode-screen').style.display = 'block';
+        document.getElementById('stitle').innerText = show.title;
+        
+        const elist = document.getElementById('elist');
+        elist.innerHTML = '';
+        show.episodes.forEach((ep, i) => {
+            const n = i + 1;
+            const item = document.createElement('div');
+            item.className = 'ep-item';
+            item.innerHTML = `<span>Ep ${n}: ${ep.title}</span> 
+                             <span class="play-icon">${n % 3 === 0 ? '<span class="lock-icon">🔒 Ad to Unlock</span>' : '▶ Play'}</span>`;
+            item.onclick = () => {
+                if(n % 3 === 0) startAd(() => playVideo(ep.url));
+                else playVideo(ep.url);
+            };
+            elist.appendChild(item);
+        });
+        playVideo(show.episodes[0].url); // Auto-load 1st ep
+    }
+
+    // 4. PLAYER & AD LOGIC
+    function playVideo(url) {
+        vPlayer.src({ type: 'video/mp4', src: url });
+        vPlayer.play();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function startAd(callback) {
+        vPlayer.pause();
+        const overlay = document.getElementById('ad-overlay');
+        overlay.style.display = 'flex';
+        let time = 5;
+        const timer = setInterval(() => {
+            time--;
+            document.getElementById('timer').innerText = time + "s";
+            if(time <= 0) {
+                clearInterval(timer);
+                overlay.style.display = 'none';
+                callback();
+            }
+        }, 1000);
+    }
+
+    function goHome() {
+        vPlayer.pause();
+        document.getElementById('home-screen').style.display = 'block';
+        document.getElementById('episode-screen').style.display = 'none';
+    }
+
+    // 5. ADMIN LOGIC (Deepak/Pawan)
+    function toggleAdmin() {
+        const p = document.getElementById('admin-panel');
+        p.style.display = p.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function verifyAdmin() {
+        const u = document.getElementById('user').value;
+        const p = document.getElementById('pass').value;
+        if(u === "Deepak" && p === "Pawan") {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('upload-form').style.display = 'block';
+        } else { alert("Login Failed!"); }
+    }
+
+    function addShow() {
+        const t = document.getElementById('title').value;
+        const po = document.getElementById('poster').value;
+        const e = document.getElementById('eps').value;
+        if(t && po && e) {
+            dramaData.push({ id: Date.now(), title: t, poster: po, episodes: JSON.parse(e) });
+            initHome();
+            alert("Show Added!");
+            toggleAdmin();
+        }
+    }
+
+    // Start App
+    initHome();
+    document.addEventListener('contextmenu', e => e.preventDefault());
+</script>
+
+</body>
+</html>
